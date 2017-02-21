@@ -133,9 +133,62 @@ ros::Publisher pose_pub_target;
 ros::Publisher pose_fk_pub;
 ros::ServiceClient controller_client;
 ros::Publisher pub_rviz;
+ros::Publisher pub_min_pt;
+ros::Publisher pub_max_pt;
 
 //true if Ctrl-C is pressed
 bool g_caught_sigint=false;
+
+visualization_msgs::Marker mark_cluster(pcl::PointCloud<pcl::PointT>::Ptr cloud_cluster,
+ std::string ns ,int id, float r, float g, float b) 
+{ 
+  Eigen::Vector4f centroid; 
+  Eigen::Vector4f min; 
+  Eigen::Vector4f max; 
+  
+  pcl::compute3DCentroid (*cloud_cluster, centroid); 
+  pcl::getMinMax3D (*cloud_cluster, min, max); 
+  
+  uint32_t shape = visualization_msgs::Marker::CUBE; 
+  visualization_msgs::Marker marker; 
+  marker.header.frame_id = "base_link"; 
+  marker.header.stamp = ros::Time::now(); 
+  
+  marker.ns = ns; 
+  marker.id = id; 
+  marker.type = shape; 
+  marker.action = visualization_msgs::Marker::ADD; 
+  
+  marker.pose.position.x = centroid[0]; 
+  marker.pose.position.y = centroid[1]; 
+  marker.pose.position.z = centroid[2]; 
+  marker.pose.orientation.x = 0.0; 
+  marker.pose.orientation.y = 0.0; 
+  marker.pose.orientation.z = 0.0; 
+  marker.pose.orientation.w = 1.0; 
+  
+  marker.scale.x = (max[0]-min[0]); 
+  marker.scale.y = (max[1]-min[1]); 
+  marker.scale.z = (max[2]-min[2]); 
+  
+  if (marker.scale.x ==0) 
+      marker.scale.x=0.1; 
+
+  if (marker.scale.y ==0) 
+    marker.scale.y=0.1; 
+
+  if (marker.scale.z ==0) 
+    marker.scale.z=0.1; 
+    
+  marker.color.r = r; 
+  marker.color.g = g; 
+  marker.color.b = b; 
+  marker.color.a = 0.5; 
+
+  marker.lifetime = ros::Duration(); 
+//   marker.lifetime = ros::Duration(0.5); 
+  return marker; 
+}
 
 /* what happens when ctr-c is pressed */
 void sig_handler(int sig)
@@ -176,126 +229,8 @@ void toPoint(const T &in, geometry_msgs::Point &out)
   out.z = in.z;
 }
 
-void addObjectsToCollision(){
 
 
-   for(int i = 0; i < result.size(); i++){
-
-      moveit_msgs::CollisionObject attached_object;
-      //attached_object.link_name = "r_wrist_roll_link";
-      /* The header must contain a valid TF frame*/
-      attached_object.header.frame_id = "r_wrist_roll_link";
-      /* The id of the object */
-      attached_object.id = "box";
-
-      /* A default pose */
-      geometry_msgs::Pose pose;
-      pose.orientation.w = 1.0;
-
-      shape_msgs::Mesh mesh = result.at(i);
-
-      /* Define a box to be attached */
-   
-      attached_object.meshes.push_back(mesh);
-      attached_object.mesh_poses.push_back(pose);
-      attached_object.operation = attached_object.ADD;
-      collison_objects.push_back(attached_object);
-   }
-   
-}
-
-void polygonMeshToShapeMsg(const PointCloud<PointXYZ> &points,
-  const std::vector<Vertices> &triangles,
-  shape_msgs::Mesh &mesh)
-{
-  mesh.vertices.resize(points.points.size());
-  for(size_t i=0; i<points.points.size(); i++)
-    toPoint(points.points[i], mesh.vertices[i]);
-
-  ROS_INFO("Found %ld polygons", triangles.size());
-  BOOST_FOREACH(const Vertices polygon, triangles)
-  {
-    if(polygon.vertices.size() < 3)
-    {
-      ROS_WARN("Not enough points in polygon. Ignoring it.");
-      continue;
-    }
-
-    shape_msgs::MeshTriangle triangle = shape_msgs::MeshTriangle();
-    boost::array<uint32_t, 3> xyz = {{polygon.vertices[0], polygon.vertices[1], polygon.vertices[2]}};
-    triangle.vertex_indices = xyz;
-
-    mesh.triangles.push_back(shape_msgs::MeshTriangle());
-  }
-}
-
-void reconstructMesh(const PointCloud<PointXYZ>::ConstPtr &cloud,
-  pcl::PointCloud<pcl::PointXYZ> &output_cloud, std::vector<pcl::Vertices> &triangles)
-{
-  boost::shared_ptr<std::vector<int> > indices(new std::vector<int>);
-  indices->resize(cloud->points.size ());
-  for (size_t i = 0; i < indices->size (); ++i) { (*indices)[i] = i; }
-
-  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-  tree->setInputCloud(cloud);
-
-  pcl::PointCloud<pcl::PointXYZ>::Ptr mls_points(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::PointCloud<pcl::PointNormal>::Ptr mls_normals(new pcl::PointCloud<pcl::PointNormal>);
-  pcl::MovingLeastSquares<pcl::PointXYZ, PointNormal> mls;
-
-  mls.setInputCloud(cloud);
-  mls.setIndices(indices);
-  mls.setPolynomialFit(true);
-  mls.setSearchMethod(tree);
-  mls.setSearchRadius(0.03);
-  
-  mls.process(*mls_normals);
-  
-  ConvexHull<PointXYZ> ch;
-  
-  ch.setInputCloud(mls_points);
-  ch.reconstruct(output_cloud, triangles);
-}
-
-bool onTriangulatePcl()
-{
-  ROS_INFO("Service request received");
-  
-   // make it global
-  //std::vector<sensor_msgs::PointCloud2> cloud_raw_vec; // make it global
-
-	std::vector<shape_msgs::Mesh> result;
-
-
-  // TODO: revomove the selected object
-   for ( int i = 0; i < detected_objects.size(); i++)
-   {
-         sensor_msgs::PointCloud2 cloud_raw;
-         pcl::PCLPointCloud2 pc_target;
-         pcl::toPCLPointCloud2(*detected_objects.at(i),pc_target);
-         pcl_conversions::fromPCL(pc_target, cloud_raw);
-
-         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-         pcl::fromROSMsg(cloud_raw, *cloud);
-
-         pcl::PointCloud<pcl::PointXYZ> out_cloud;
-         std::vector<pcl::Vertices> triangles;
-
-         ROS_INFO("Triangulating");
-         reconstructMesh(cloud, out_cloud, triangles);
-         ROS_INFO("Triangulation done");
-
-         ROS_INFO("Converting to shape message");
-         shape_msgs::Mesh mes;
-         polygonMeshToShapeMsg(out_cloud, triangles, mes);
-      
-   }
-
-   // After this collision_object should be filled up with collision objects
-   addObjectsToCollision();
-
-  return true;
-}
 
 bool service_cb(geometry_msgs::PoseStamped p_target){
     ROS_INFO("[mico_moveit_cartesianpose_service.cpp] Request received!");
@@ -361,6 +296,13 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
+//-------------------------------------------------------------------------------------------//
+ 
+
+//std::vector<moveit_msgs::CollisionObject> collision_objects;
+
+//----------------------------------------------------------------------------------------------//
+
   controller_client = nh.serviceClient<moveit_utils::MicoController>("mico_controller");
   //ros::ServiceServer srv = nh.advertiseService("mico_cartesianpose_service", service_cb);
 
@@ -391,6 +333,11 @@ int main(int argc, char **argv)
   pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_out", 10);
   pose_fk_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_fk_out", 10);
   pub_rviz = nh.advertise<geometry_msgs::PoseStamped>("/point_rviz", 10);
+  pub_min_pt = nh.advertise<geometry_msgs::Point>("/point_rviz_min", 10);
+  pub_max_pt = nh.advertise<geometry_msgs::Point>("/point_rviz_max", 10);
+  ros::Publisher pub_box = node_handle.advertise<visualization_msgs::Marker>( "visualization_marker", 10 );
+
+
   
   //debugging publisher
   cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("agile_grasp_demo/cloud_debug", 10);
@@ -438,7 +385,8 @@ int main(int argc, char **argv)
 	}
 	
 	//wait for transform and perform it
-	tf_listener.waitForTransform(table_scene.cloud_clusters[largest_pc_index].header.frame_id,"base_link",ros::Time(0), ros::Duration(3.0)); 
+	tf_listener.waitForTransform(table_scene.cloud_clusters[largest_pc_index].header.frame_id,"base_link",
+    ros::Time(0), ros::Duration(3.0)); 
 	
 	// Transformed Object - in reference from the base_link
 	sensor_msgs::PointCloud2 object_cloud;	
@@ -446,10 +394,48 @@ int main(int argc, char **argv)
 	//transform it to base link frame of reference
 	pcl_ros::transformPointCloud ("base_link", table_scene.cloud_clusters[largest_pc_index], object_cloud, tf_listener);
 		
-
-	
 	segbot_arm_manipulation::closeHand();
-  
+
+  // convert to PCL 
+  PointCloudT::Ptr object_i (new PointCloudT);
+  pcl::PCLPointCloud2 pc_i;
+  pcl_conversions::toPCL(object_cloud,pc_i);
+  pcl::fromPCLPointCloud2(pc_i,*object_i);
+
+  // get the min and max
+  pcl::PointXYZ min_pt;
+  pcl::PointXYZ max_pt;
+  pcl::getMinMax3D(object_i, &min_pt, &max_pt); 
+
+  // create a bounding box
+  moveit_msgs::CollisionObject collision_object;
+  collision_object.header.frame_id = group.getPlanningFrame();
+
+  /* The id of the object is used to identify it. */
+  collision_object.id = "box" + i;
+
+  /* Define a box to add to the world. */
+  shape_msgs::SolidPrimitive primitive;
+  primitive.type = primitive.BOX;
+  primitive.dimensions.resize(3);
+
+  // Work on these
+  primitive.dimensions[0] = 0.4;
+  primitive.dimensions[1] = 0.1;
+  primitive.dimensions[2] = 0.4;
+
+  /* A pose for the box (specified relative to frame_id) */
+  geometry_msgs::Pose box_pose;
+  box_pose.orientation.w = 1.0;
+  box_pose.position.x =  min_pt.x;
+  box_pose.position.y = min_pt.y;
+  box_pose.position.z =  min_pt.z;
+
+  collision_object.primitives.push_back(primitive);
+  collision_object.primitive_poses.push_back(box_pose);
+  collision_object.operation = collision_object.ADD;
+  collision_objects.push_back(collision_object);
+
   
 
   //fill the detected objects
@@ -463,33 +449,26 @@ int main(int argc, char **argv)
     detected_objects.push_back(object_i);
   }
   
-  
-
-
-  
   if (detected_objects.size() == 0){
     ROS_INFO("[agile_grasp_demo.cpp] No objects detected");
     //return 1;
   }else{
 	  ROS_INFO("Objects Detected!");
   }
-
- 
-	
- 
-	//tranform pose into arm frame of reference
-	//tf::TransformListener listener;
-	//listener.waitForTransform(p_target.header.frame_id, "mico_api_origin", ros::Time(0), ros::Duration(3.0));
-	//listener.transformPose("mico_api_origin", p_target, p_target);
-			
+  
 	// fill up the collison objects vector
-	onTriangulatePcl();
+	//onTriangulatePcl();
 	// publish the pose with the collison objects
   
-	
+	visualization_msgs::Marker marker = mark_cluster(object_i, "namespace", 1, 0.0, 1.0, 0.0);
+
 	// pub torviz;
 	ROS_INFO("Moving to start pose now\n");
-	pub_rviz.publish(end_pose);
+  pub_rviz.publish(end_pose);
+  pub_min_pt.publish(min_pt);
+  pub_max_pt.publish(max_pt); 
+  pub_box.publish(marker);
+
 	//segbot_arm_manipulation::moveToPoseMoveIt(nh,end_pose);
    
 	service_cb(end_pose);

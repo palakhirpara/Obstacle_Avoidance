@@ -117,7 +117,7 @@ typedef pcl::PointCloud<PointT> PointCloudT;
 
 std::vector<PointCloudT::Ptr> detected_objects;
 std::vector<shape_msgs::Mesh> result; // mesh objects
-std::vector<moveit_msgs::CollisionObject> collison_objects; 
+std::vector<moveit_msgs::CollisionObject> collision_objects; 
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped start_pose;
 geometry_msgs::PoseStamped end_pose;
@@ -135,60 +135,12 @@ ros::ServiceClient controller_client;
 ros::Publisher pub_rviz;
 ros::Publisher pub_min_pt;
 ros::Publisher pub_max_pt;
+ros::Publisher display_publisher;
+moveit_msgs::DisplayTrajectory display_trajectory;
 
 //true if Ctrl-C is pressed
 bool g_caught_sigint=false;
 
-visualization_msgs::Marker mark_cluster(pcl::PointCloud<pcl::PointT>::Ptr cloud_cluster,
- std::string ns ,int id, float r, float g, float b) 
-{ 
-  Eigen::Vector4f centroid; 
-  Eigen::Vector4f min; 
-  Eigen::Vector4f max; 
-  
-  pcl::compute3DCentroid (*cloud_cluster, centroid); 
-  pcl::getMinMax3D (*cloud_cluster, min, max); 
-  
-  uint32_t shape = visualization_msgs::Marker::CUBE; 
-  visualization_msgs::Marker marker; 
-  marker.header.frame_id = "base_link"; 
-  marker.header.stamp = ros::Time::now(); 
-  
-  marker.ns = ns; 
-  marker.id = id; 
-  marker.type = shape; 
-  marker.action = visualization_msgs::Marker::ADD; 
-  
-  marker.pose.position.x = centroid[0]; 
-  marker.pose.position.y = centroid[1]; 
-  marker.pose.position.z = centroid[2]; 
-  marker.pose.orientation.x = 0.0; 
-  marker.pose.orientation.y = 0.0; 
-  marker.pose.orientation.z = 0.0; 
-  marker.pose.orientation.w = 1.0; 
-  
-  marker.scale.x = (max[0]-min[0]); 
-  marker.scale.y = (max[1]-min[1]); 
-  marker.scale.z = (max[2]-min[2]); 
-  
-  if (marker.scale.x ==0) 
-      marker.scale.x=0.1; 
-
-  if (marker.scale.y ==0) 
-    marker.scale.y=0.1; 
-
-  if (marker.scale.z ==0) 
-    marker.scale.z=0.1; 
-    
-  marker.color.r = r; 
-  marker.color.g = g; 
-  marker.color.b = b; 
-  marker.color.a = 0.5; 
-
-  marker.lifetime = ros::Duration(); 
-//   marker.lifetime = ros::Duration(0.5); 
-  return marker; 
-}
 
 /* what happens when ctr-c is pressed */
 void sig_handler(int sig)
@@ -238,19 +190,23 @@ bool service_cb(geometry_msgs::PoseStamped p_target){
     moveit_utils::MicoController srv_controller;
     moveit::planning_interface::MoveGroup group("arm");
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-    //planning_scene_interface.addCollisionObjects(collison_objects);
-    group.setPlanningTime(5.0); //5 second maximum for collision computation
+    ROS_INFO("COLLISION SIZE\n");
+    ROS_INFO_STREAM(collision_objects.size());
+    
+    planning_scene_interface.addCollisionObjects(collision_objects);
+    //sleep()2.0);
+    group.setPlanningTime(10.0); //5 second maximum for collision computation
     moveit::planning_interface::MoveGroup::Plan my_plan;
+    
     geometry_msgs::PoseStamped goal;
     goal.pose.orientation = p_target.pose.orientation;
     goal.pose.position = p_target.pose.position;
-   
     //publish target pose
     //pose_pub_target.publish(p_target);
-
-   
-    group.setPoseTarget(p_target);
+    //ROS_INFO_STREAM(end_pose);
+    
     group.setStartState(*group.getCurrentState());
+    group.setPoseTarget(p_target);
 
     ROS_INFO("[mico_moveit_cartesianpose_service.cpp] starting to plan...");
     bool success = group.plan(my_plan);
@@ -258,9 +214,22 @@ bool service_cb(geometry_msgs::PoseStamped p_target){
 		ROS_INFO("planning successful\n");
 	else 
 		ROS_INFO("not successful :( \n");
+		
+	group.attachObject(collision_objects[0].id);
 	
-	//group.move();
+	if (1)
+	{
+		ROS_INFO("Visualizing plan 1 (again)");
+		display_trajectory.trajectory_start = my_plan.start_state_;
+		display_trajectory.trajectory.push_back(my_plan.trajectory_);
+		display_publisher.publish(display_trajectory);
+		/* Sleep to give Rviz time to visualize the plan. */
+		sleep(5.0);
+	}
+
     //call service
+    // ROS_INFO("Printing Trajectory \n");
+    // ROS_INFO_STREAM(my_plan.trajectory_);
     moveit_utils::MicoController srv;
     srv_controller.request.trajectory = my_plan.trajectory_;
 
@@ -296,12 +265,7 @@ int main(int argc, char **argv)
   ros::AsyncSpinner spinner(1);
   spinner.start();
 
-//-------------------------------------------------------------------------------------------//
- 
 
-//std::vector<moveit_msgs::CollisionObject> collision_objects;
-
-//----------------------------------------------------------------------------------------------//
 
   controller_client = nh.serviceClient<moveit_utils::MicoController>("mico_controller");
   //ros::ServiceServer srv = nh.advertiseService("mico_cartesianpose_service", service_cb);
@@ -333,10 +297,13 @@ int main(int argc, char **argv)
   pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_out", 10);
   pose_fk_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_fk_out", 10);
   pub_rviz = nh.advertise<geometry_msgs::PoseStamped>("/point_rviz", 10);
-  pub_min_pt = nh.advertise<geometry_msgs::Point>("/point_rviz_min", 10);
+  pub_min_pt = nh.advertise<geometry_msgs::PoseStamped>("/point_rviz_min", 10);
   pub_max_pt = nh.advertise<geometry_msgs::Point>("/point_rviz_max", 10);
-  ros::Publisher pub_box = node_handle.advertise<visualization_msgs::Marker>( "visualization_marker", 10 );
+  ros::Publisher pub_box = nh.advertise<visualization_msgs::Marker>("/obstacle_marker", 10 );
 
+  display_publisher = nh.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+
+  
 
   
   //debugging publisher
@@ -350,15 +317,7 @@ int main(int argc, char **argv)
 	//create listener for transforms
 	tf::TransformListener tf_listener;
 
-  ROS_INFO("Demo starting...move the arm to end pose.");
-  pressEnter();
-  listenForArmData(30.0);
-  end_pose = current_pose;
-  
-  ROS_INFO("Demo starting...move the arm to start pose.");
-  pressEnter();
-  listenForArmData(30.0);
-  start_pose = current_pose;
+ 
   
 	segbot_arm_perception::TabletopPerception::Response table_scene = segbot_arm_manipulation::getTabletopScene(nh);
   
@@ -371,6 +330,16 @@ int main(int argc, char **argv)
 		ROS_INFO("Objects Found on the table.");
 	}
 		
+	 ROS_INFO("Demo starting...move the arm to end pose.");
+	 pressEnter();
+	 listenForArmData(30.0);
+	 end_pose = current_pose;
+	  
+	 ROS_INFO("Demo starting...move the arm to start pose.");
+	 pressEnter();
+	 listenForArmData(30.0);
+	 start_pose = current_pose;
+	  
 	//select the object with most points as the target object
 	int largest_pc_index = -1;
 	int largest_num_points = -1;
@@ -401,18 +370,20 @@ int main(int argc, char **argv)
   pcl::PCLPointCloud2 pc_i;
   pcl_conversions::toPCL(object_cloud,pc_i);
   pcl::fromPCLPointCloud2(pc_i,*object_i);
+  
 
   // get the min and max
-  pcl::PointXYZ min_pt;
-  pcl::PointXYZ max_pt;
-  pcl::getMinMax3D(object_i, &min_pt, &max_pt); 
+  PointT min_pt;
+  PointT max_pt;
+  ////////////////////////////// 3D MIN MAX ////////////////////////////////////////
+  pcl::getMinMax3D(*object_i, min_pt, max_pt); 
 
   // create a bounding box
   moveit_msgs::CollisionObject collision_object;
-  collision_object.header.frame_id = group.getPlanningFrame();
+  collision_object.header.frame_id = "base_link";
 
   /* The id of the object is used to identify it. */
-  collision_object.id = "box" + i;
+  collision_object.id = "box";
 
   /* Define a box to add to the world. */
   shape_msgs::SolidPrimitive primitive;
@@ -420,9 +391,9 @@ int main(int argc, char **argv)
   primitive.dimensions.resize(3);
 
   // Work on these
-  primitive.dimensions[0] = 0.4;
-  primitive.dimensions[1] = 0.1;
-  primitive.dimensions[2] = 0.4;
+  primitive.dimensions[0] = max_pt.x - min_pt.x;
+  primitive.dimensions[1] = max_pt.y - min_pt.y;
+  primitive.dimensions[2] = max_pt.z - min_pt.z;
 
   /* A pose for the box (specified relative to frame_id) */
   geometry_msgs::Pose box_pose;
@@ -460,18 +431,70 @@ int main(int argc, char **argv)
 	//onTriangulatePcl();
 	// publish the pose with the collison objects
   
-	visualization_msgs::Marker marker = mark_cluster(object_i, "namespace", 1, 0.0, 1.0, 0.0);
+//visualization_msgs::Marker marker = mark_cluster(object_i, "namespace", 1, 0.0, 1.0, 0.0);
 
 	// pub torviz;
-	ROS_INFO("Moving to start pose now\n");
+  ROS_INFO("Publishing End Pose");
   pub_rviz.publish(end_pose);
-  pub_min_pt.publish(min_pt);
-  pub_max_pt.publish(max_pt); 
+ 
+ 
+  ROS_INFO_STREAM(end_pose);
+  ROS_INFO("Publishing min and max point to rviz\n");
+  //pub_min_pt.publish(min_point);
+  //pub_max_pt.publish(max_point); 
+  
+  
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*object_i, centroid);
+  
+  uint32_t shape = visualization_msgs::Marker::CUBE; 
+  visualization_msgs::Marker marker; 
+  marker.header.frame_id = "base_link"; 
+  marker.header.stamp = ros::Time::now(); 
+  
+  marker.ns = "collision_object"; 
+  marker.id = 1; 
+  marker.type = shape; 
+  marker.action = visualization_msgs::Marker::ADD; 
+  
+  marker.pose.position.x = centroid[0]; 
+  marker.pose.position.y = centroid[1]; 
+  marker.pose.position.z = centroid[2]; 
+  marker.pose.orientation =  tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
+ 
+ /*
+  marker.pose.orientation.x = 0.0; 
+  marker.pose.orientation.y = 0.0; 
+  marker.pose.orientation.z = 0.0; 
+  marker.pose.orientation.w = 1.0;
+  */ 
+  
+  marker.scale.x = (max_pt.x-min_pt.x); 
+  marker.scale.y = (max_pt.y-min_pt.y); 
+  marker.scale.z = (max_pt.z-min_pt.z); 
+  
+  if (marker.scale.x ==0) 
+      marker.scale.x=0.1; 
+
+  if (marker.scale.y ==0) 
+    marker.scale.y=0.1; 
+
+  if (marker.scale.z ==0) 
+    marker.scale.z=0.1; 
+    
+  marker.color.r = 1.0; 
+  marker.color.g = 0.5; 
+  marker.color.b = 1.5; 
+  marker.color.a = 0.5; 
+
+  marker.lifetime = ros::Duration(); 
+  ROS_INFO("Marker Printing");
+  ROS_INFO_STREAM(marker);
   pub_box.publish(marker);
 
-	//segbot_arm_manipulation::moveToPoseMoveIt(nh,end_pose);
+  //segbot_arm_manipulation::moveToPoseMoveIt(nh,end_pose);
    
-	service_cb(end_pose);
+  service_cb(end_pose);
   ros::spin();
   //ros::shutdown();
   return 0;

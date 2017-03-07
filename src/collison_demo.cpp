@@ -13,19 +13,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "moveit_utils/MicoMoveitCartesianPose.h"
 
-#include "segbot_arm_perception/TabletopPerception.h"
-
-#include <moveit/move_group_interface/move_group.h>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
-
-#include <moveit_msgs/DisplayRobotState.h>
-#include <moveit_msgs/DisplayTrajectory.h>
-
-#include <moveit_msgs/AttachedCollisionObject.h>
-#include <moveit_msgs/CollisionObject.h>
-
 #include <ros/ros.h>
-#include <signal.h>
 #include <iostream>
 #include <vector>
 #include <math.h>
@@ -86,12 +74,6 @@
 
 #include <pcl/kdtree/kdtree.h>
 
-#include <pcl_conversions/pcl_conversions.h>
-
-#include <tf/transform_listener.h>
-#include <tf/tf.h>
-
-#include <moveit_msgs/DisplayRobotState.h>
 // Kinematics
 #include <moveit_msgs/GetPositionFK.h>
 #include <moveit_msgs/GetPositionIK.h>
@@ -100,12 +82,8 @@
 #include <moveit_utils/MicoMoveitJointPose.h>
 #include <moveit_utils/MicoMoveitCartesianPose.h>
 
-#include <geometry_msgs/TwistStamped.h>
-
-
 #include <segbot_arm_manipulation/arm_utils.h>
 
-#include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/surface/mls.h>

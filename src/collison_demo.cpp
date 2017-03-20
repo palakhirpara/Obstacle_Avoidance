@@ -170,9 +170,9 @@ bool service_cb(geometry_msgs::PoseStamped p_target){
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     ROS_INFO("COLLISION SIZE\n");
     ROS_INFO_STREAM(collision_objects.size());
-    sleep(10.0);
+    sleep(2.0);
     planning_scene_interface.addCollisionObjects(collision_objects);
-    sleep(10.0);
+    sleep(2.0);
     group.setPlanningTime(10.0); //5 second maximum for collision computation
     moveit::planning_interface::MoveGroup::Plan my_plan;
     
@@ -307,16 +307,6 @@ int main(int argc, char **argv)
 		
 		ROS_INFO("Objects Found on the table.");
 	}
-		
-	 ROS_INFO("Demo starting...move the arm to end pose.");
-	 pressEnter();
-	 listenForArmData(30.0);
-	 end_pose = current_pose;
-	  
-	 ROS_INFO("Demo starting...move the arm to start pose.");
-	 pressEnter();
-	 listenForArmData(30.0);
-	 start_pose = current_pose;
 	  
 	//select the object with most points as the target object
 	int largest_pc_index = -1;
@@ -382,7 +372,7 @@ int main(int argc, char **argv)
   // box_pose.position.y = min_pt.y;
   // box_pose.position.z =  min_pt.z;
   box_pose.position.x = centroid[0];
-  box_pose.postiion.y = centroid[1];
+  box_pose.position.y = centroid[1];
   box_pose.position.z = centroid[2];
 
   collision_object.primitives.push_back(primitive);
@@ -410,26 +400,7 @@ int main(int argc, char **argv)
 	  ROS_INFO("Objects Detected!");
   }
   
-	// fill up the collison objects vector
-	//onTriangulatePcl();
-	// publish the pose with the collison objects
-  
-//visualization_msgs::Marker marker = mark_cluster(object_i, "namespace", 1, 0.0, 1.0, 0.0);
-
-	// pub torviz;
-  ROS_INFO("Publishing End Pose");
-  pub_rviz.publish(end_pose);
- 
- 
-  ROS_INFO_STREAM(end_pose);
-  ROS_INFO("Publishing min and max point to rviz\n");
-  //pub_min_pt.publish(min_point);
-  //pub_max_pt.publish(max_point); 
-  
-  
-  
-  
-  uint32_t shape = visualization_msgs::Marker::CUBE; 
+    uint32_t shape = visualization_msgs::Marker::CUBE; 
   visualization_msgs::Marker marker; 
   marker.header.frame_id = "base_link"; 
   marker.header.stamp = ros::Time::now(); 
@@ -444,12 +415,12 @@ int main(int argc, char **argv)
   marker.pose.position.z = centroid[2]; 
   marker.pose.orientation =  tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
  
- /*
+  /*    
   marker.pose.orientation.x = 0.0; 
   marker.pose.orientation.y = 0.0; 
   marker.pose.orientation.z = 0.0; 
   marker.pose.orientation.w = 1.0;
-  */ 
+  */
   
   marker.scale.x = (max_pt.x-min_pt.x); 
   marker.scale.y = (max_pt.y-min_pt.y); 
@@ -473,6 +444,33 @@ int main(int argc, char **argv)
   ROS_INFO("Marker Printing");
   ROS_INFO_STREAM(marker);
   pub_box.publish(marker);
+  
+	// fill up the collison objects vector
+	//onTriangulatePcl();
+	// publish the pose with the collison objects
+  
+//visualization_msgs::Marker marker = mark_cluster(object_i, "namespace", 1, 0.0, 1.0, 0.0);
+
+	// pub torviz;
+	
+  ROS_INFO("Demo starting...move the arm to end pose.");
+  pressEnter();
+  listenForArmData(30.0);
+  end_pose = current_pose;
+	  
+	 ROS_INFO("Demo starting...move the arm to start pose.");
+	 pressEnter();
+	 listenForArmData(30.0);
+	 start_pose = current_pose;
+  
+  ROS_INFO("Publishing End Pose");
+  pub_rviz.publish(end_pose);
+ 
+ 
+  ROS_INFO_STREAM(end_pose);
+  ROS_INFO("Publishing min and max point to rviz\n");
+  //pub_min_pt.publish(min_point);
+  //pub_max_pt.publish(max_point); 
 
   //segbot_arm_manipulation::moveToPoseMoveIt(nh,end_pose);
    

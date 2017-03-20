@@ -170,6 +170,7 @@ bool service_cb(geometry_msgs::PoseStamped p_target){
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     ROS_INFO("COLLISION SIZE\n");
     ROS_INFO_STREAM(collision_objects.size());
+    sleep(10.0);
     planning_scene_interface.addCollisionObjects(collision_objects);
     sleep(10.0);
     group.setPlanningTime(10.0); //5 second maximum for collision computation

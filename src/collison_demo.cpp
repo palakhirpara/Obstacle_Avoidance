@@ -355,6 +355,8 @@ int main(int argc, char **argv)
   PointT max_pt;
   ////////////////////////////// 3D MIN MAX ////////////////////////////////////////
   pcl::getMinMax3D(*object_i, min_pt, max_pt); 
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*object_i, centroid);
 
   // create a bounding box
   moveit_msgs::CollisionObject collision_object;
@@ -375,10 +377,13 @@ int main(int argc, char **argv)
 
   /* A pose for the box (specified relative to frame_id) */
   geometry_msgs::Pose box_pose;
-  box_pose.orientation.w = 1.0;
-  box_pose.position.x =  min_pt.x;
-  box_pose.position.y = min_pt.y;
-  box_pose.position.z =  min_pt.z;
+  box_pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
+  // box_pose.position.x =  min_pt.x;
+  // box_pose.position.y = min_pt.y;
+  // box_pose.position.z =  min_pt.z;
+  box_pose.position.x = centroid[0];
+  box_pose.postiion.y = centroid[1];
+  box_pose.position.z = centroid[2];
 
   collision_object.primitives.push_back(primitive);
   collision_object.primitive_poses.push_back(box_pose);
@@ -422,8 +427,7 @@ int main(int argc, char **argv)
   //pub_max_pt.publish(max_point); 
   
   
-  Eigen::Vector4f centroid;
-  pcl::compute3DCentroid(*object_i, centroid);
+  
   
   uint32_t shape = visualization_msgs::Marker::CUBE; 
   visualization_msgs::Marker marker; 

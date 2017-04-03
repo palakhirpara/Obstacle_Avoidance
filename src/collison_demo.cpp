@@ -218,7 +218,8 @@ int main(int argc, char **argv) {
     ros::Publisher pub_box = nh.advertise<visualization_msgs::Marker>("/obstacle_marker", 10 );
 
     display_publisher = nh.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
-    
+		
+	ros::Subscriber sub_tool = nh.subscribe("/mico_arm_driver/out/tool_position", 1, toolpos_cb);
     //register ctrl-c
     signal(SIGINT, sig_handler);
   
@@ -358,6 +359,7 @@ int main(int argc, char **argv) {
     ROS_INFO("Demo starting...");
     ROS_INFO("Move the arm to end pose.");
     pressEnter();
+    ROS_INFO("Mo start pose.");
     listenForArmData(30.0);
     end_pose = current_pose;
 

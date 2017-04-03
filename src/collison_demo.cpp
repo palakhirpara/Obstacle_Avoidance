@@ -146,7 +146,8 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
     moveit::planning_interface::MoveGroup group("arm");
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     
-    ROS_INFO("Collision size: %i\n", collision_objects.size());
+    ROS_INFO("Collision size:");
+    ROS_INFO_STREAM(collision_objects.size());
 
     sleep(2.0);
     planning_scene_interface.addCollisionObjects(collision_objects);
@@ -301,7 +302,7 @@ int main(int argc, char **argv) {
 
     //fill the detected objects
     detected_objects.clear();
-    ROS_INFO("%i", (int)table_scene.cloud_clusters.size());
+    ROS_INFO_STREAM((int)table_scene.cloud_clusters.size());
   
     for (unsigned int i = 0; i < table_scene.cloud_clusters.size(); i++) {
         PointCloudT::Ptr object_i (new PointCloudT);
@@ -370,7 +371,7 @@ int main(int argc, char **argv) {
 
    
     service_cb(end_pose);
-    ROS_INFO("Demo has ended. Ctrl-C to exit.")
+    ROS_INFO("Demo has ended. Ctrl-C to exit.");
     ros::spin();
     return 0;
 }

@@ -1,6 +1,6 @@
 #include <signal.h>
 #include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
+#include <visualization_msgs/MarkerArray.h> //???
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/DisplayRobotState.h>
@@ -98,16 +98,8 @@ geometry_msgs::PoseStamped end_pose;
 bool heardPose = false;
 
 ros::Publisher pub_velocity;
-ros::Publisher cloud_pub;
-ros::Publisher cloud_grasp_pub;
-ros::Publisher pose_array_pub;
-ros::Publisher pose_pub;
-ros::Publisher pose_pub_target;
-ros::Publisher pose_fk_pub;
 ros::ServiceClient controller_client;
 ros::Publisher pub_rviz;
-ros::Publisher pub_min_pt;
-ros::Publisher pub_max_pt;
 ros::Publisher display_publisher;
 moveit_msgs::DisplayTrajectory display_trajectory;
 
@@ -132,7 +124,7 @@ void toolpos_cb (const geometry_msgs::PoseStamped &msg) {
 void listenForArmData(float rate) {
     heardPose = false;
     ros::Rate r(rate);
-    while (ros::ok()){
+    while (ros::ok()) {
         ros::spinOnce();
 	if (heardPose) 
             return;
@@ -142,9 +134,9 @@ void listenForArmData(float rate) {
 
 template<typename T>
 void toPoint(const T &in, geometry_msgs::Point &out) {
-  out.x = in.x;
-  out.y = in.y;
-  out.z = in.z;
+    out.x = in.x;
+    out.y = in.y;
+    out.z = in.z;
 }
 
 bool service_cb(geometry_msgs::PoseStamped p_target) {
@@ -154,14 +146,13 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
     moveit::planning_interface::MoveGroup group("arm");
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
     
-    ROS_INFO("COLLISION SIZE\n");
-    ROS_INFO_STREAM(collision_objects.size());
+    ROS_INFO("Collision size: %i\n", collision_objects.size());
 
     sleep(2.0);
     planning_scene_interface.addCollisionObjects(collision_objects);
     sleep(2.0);
 
-    group.setPlanningTime(10.0); //5 second maximum for collision computation
+    group.setPlanningTime(20.0); //5 second maximum for collision computation
 
     moveit::planning_interface::MoveGroup::Plan my_plan;
     
@@ -174,14 +165,16 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
 
     ROS_INFO("[mico_moveit_cartesianpose_service.cpp] starting to plan...");
     bool success = group.plan(my_plan);
-    if(success)
+    if (success)
         ROS_INFO("Planning successful\n");
-    else 
-        ROS_WARN("Planning unsuccessful\n");
+    else {
+        ROS_WARN("Planning unsuccessful. Please rerun.\n");
+        exit(1);
+    }
 		
     group.attachObject(collision_objects[0].id);
 	
-    ROS_INFO("Visualizing plan 1 (again)");
+    ROS_INFO("Visualizing plan. Check Rviz to see trajectory.");
     display_trajectory.trajectory_start = my_plan.start_state_;
     display_trajectory.trajectory.push_back(my_plan.trajectory_);
     display_publisher.publish(display_trajectory);
@@ -195,11 +188,12 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
 	
     ROS_INFO("Calling controller client");
 	
-    if(controller_client.call(srv_controller)){
-       ROS_INFO("Service call sent. Prepare for movement.");
+    if (controller_client.call(srv_controller)) {
+        ROS_INFO("Service call sent. Prepare for movement.");
     }
     else {
-      ROS_WARN("Service call failed. Is the service running?");
+        ROS_WARN("Service call failed. Is the service running? Please rerun.");
+        exit(1);
     }
   
     ros::spinOnce();
@@ -215,28 +209,14 @@ void pressEnter() {
 int main(int argc, char **argv) {
     ros::init(argc, argv, "collison_demo");
     ros::NodeHandle nh;
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
 
     controller_client = nh.serviceClient<moveit_utils::MicoController>("mico_controller");
-    pose_pub_target = nh.advertise<geometry_msgs::PoseStamped>("/mico_cartesianpose_service/target_pose", 10);
-  
-    //create subscriber to tool position topic
-    ros::Subscriber sub_tool = nh.subscribe("/mico_arm_driver/out/tool_position", 1, toolpos_cb);
     
     //publish pose 
-    pose_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_out", 10);
-    pose_fk_pub = nh.advertise<geometry_msgs::PoseStamped>("/agile_grasp_demo/pose_fk_out", 10);
     pub_rviz = nh.advertise<geometry_msgs::PoseStamped>("/point_rviz", 10);
-    pub_min_pt = nh.advertise<geometry_msgs::PoseStamped>("/point_rviz_min", 10);
-    pub_max_pt = nh.advertise<geometry_msgs::Point>("/point_rviz_max", 10);
     ros::Publisher pub_box = nh.advertise<visualization_msgs::Marker>("/obstacle_marker", 10 );
 
     display_publisher = nh.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
- 
-    //debugging publisher
-    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("agile_grasp_demo/cloud_debug", 10);
-    cloud_grasp_pub = nh.advertise<sensor_msgs::PointCloud2>("agile_grasp_demo/cloud", 10);
     
     //register ctrl-c
     signal(SIGINT, sig_handler);
@@ -246,27 +226,27 @@ int main(int argc, char **argv) {
 
     segbot_arm_perception::TabletopPerception::Response table_scene = segbot_arm_manipulation::getTabletopScene(nh);
   
-    if ((int)table_scene.cloud_clusters.size() == 0){
+    if ((int)table_scene.cloud_clusters.size() == 0) {
         ROS_WARN("No objects found on table. Exiting. Please add objects and rerun.");
-	exit(1);
+	    exit(1);
     } else {
-	ROS_INFO("Objects found on the table.");
+	    ROS_INFO("Objects found on the table.");
     }
 	  
     //select the object with most points as the target object
     int largest_pc_index = -1;
     int largest_num_points = -1;
-    for (unsigned int i = 0; i < table_scene.cloud_clusters.size(); i++){
+    for (unsigned int i = 0; i < table_scene.cloud_clusters.size(); i++) {
         int num_points_i = table_scene.cloud_clusters[i].height* table_scene.cloud_clusters[i].width;
-	if (num_points_i > largest_num_points){
-	    largest_num_points = num_points_i;
-	    largest_pc_index = i;
+	    if (num_points_i > largest_num_points) {
+	       largest_num_points = num_points_i;
+	       largest_pc_index = i;
         }
     }
 	
     //wait for transform and perform it
     tf_listener.waitForTransform(table_scene.cloud_clusters[largest_pc_index].header.frame_id,"base_link",
-    ros::Time(0), ros::Duration(3.0)); 
+        ros::Time(0), ros::Duration(3.0)); 
 	
     // Transformed Object - in reference from the base_link
     sensor_msgs::PointCloud2 object_cloud;	
@@ -335,9 +315,11 @@ int main(int argc, char **argv) {
         ROS_INFO("[agile_grasp_demo.cpp] No objects detected");
         exit(1);
     } else {
-	ROS_INFO("Objects Detected!");
+	    ROS_INFO("Objects Detected!");
     }
   
+
+    //Creating marker
     uint32_t shape = visualization_msgs::Marker::CUBE; 
     visualization_msgs::Marker marker; 
     marker.header.frame_id = "base_link"; 
@@ -353,9 +335,9 @@ int main(int argc, char **argv) {
     marker.pose.position.z = centroid[2]; 
     marker.pose.orientation =  tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
  
-    marker.scale.x = (max_pt.x-min_pt.x); 
-    marker.scale.y = (max_pt.y-min_pt.y); 
-    marker.scale.z = (max_pt.z-min_pt.z); 
+    marker.scale.x = (max_pt.x - min_pt.x); 
+    marker.scale.y = (max_pt.y - min_pt.y); 
+    marker.scale.z = (max_pt.z - min_pt.z); 
   
     if (marker.scale.x == 0)  marker.scale.x = 0.1; 
     if (marker.scale.y == 0)  marker.scale.y = 0.1; 
@@ -368,25 +350,27 @@ int main(int argc, char **argv) {
 
     marker.lifetime = ros::Duration(); 
     
-    ROS_INFO("Marker Printing");
-    ROS_INFO_STREAM(marker);
+    ROS_INFO("Marker printed. Check RViz to see which object has been chosen as the obstacle.");
     pub_box.publish(marker);
+
 	
-    ROS_INFO("Demo starting...move the arm to end pose.");
+    ROS_INFO("Demo starting...");
+    ROS_INFO("Move the arm to end pose.");
     pressEnter();
     listenForArmData(30.0);
     end_pose = current_pose;
 
-    ROS_INFO("Demo starting...move the arm to start pose.");
+    ROS_INFO("Move the arm to start pose.");
     pressEnter();
     listenForArmData(30.0);
     start_pose = current_pose;
   
-    ROS_INFO("Publishing End Pose");
+    ROS_INFO("Publishing end pose. Check Rviz to see end pose.");
     pub_rviz.publish(end_pose);
-    ROS_INFO_STREAM(end_pose);
+
    
     service_cb(end_pose);
+    ROS_INFO("Demo has ended. Ctrl-C to exit.")
     ros::spin();
     return 0;
 }

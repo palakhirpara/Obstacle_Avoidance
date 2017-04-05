@@ -1,89 +1,89 @@
-#include <signal.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h> //???
+//#include <signal.h>
+//#include <visualization_msgs/Marker.h>
+//#include <visualization_msgs/MarkerArray.h> //???
 #include <moveit/move_group_interface/move_group.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <moveit_msgs/DisplayRobotState.h>
+//#include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
-#include <moveit_msgs/AttachedCollisionObject.h>
-#include <moveit_msgs/CollisionObject.h>
+//#include <moveit_msgs/AttachedCollisionObject.h>
+//#include <moveit_msgs/CollisionObject.h>
 //services
 #include "moveit_utils/MicoController.h"
-#include "ros/ros.h"
-#include "geometry_msgs/PoseStamped.h"
-#include "moveit_utils/MicoMoveitCartesianPose.h"
+//#include "ros/ros.h"
+//#include "geometry_msgs/PoseStamped.h"
+//#include "moveit_utils/MicoMoveitCartesianPose.h"
 
-#include <ros/ros.h>
-#include <iostream>
-#include <vector>
-#include <math.h>
-#include <cstdlib>
-#include <std_msgs/String.h>
+//#include <ros/ros.h>
+//#include <iostream>
+//#include <vector>
+//#include <math.h>
+//#include <cstdlib>
+//#include <std_msgs/String.h>
 
-#include <Eigen/Dense>
-#include <eigen_conversions/eigen_msg.h>
+//#include <Eigen/Dense>
+//#include <eigen_conversions/eigen_msg.h>
 
-#include <sensor_msgs/JointState.h>
-#include <geometry_msgs/TwistStamped.h>
-#include <geometry_msgs/PoseArray.h>
-#include <std_msgs/Float32.h>
+//#include <sensor_msgs/JointState.h> //???
+//#include <geometry_msgs/TwistStamped.h> //???
+//#include <geometry_msgs/PoseArray.h> //???
+//#include <std_msgs/Float32.h> //???
 
 //tf stuff
-#include <tf/transform_datatypes.h>
-#include <tf_conversions/tf_eigen.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
-#include <tf/tf.h>
+//#include <tf/transform_datatypes.h>  
+//#include <tf_conversions/tf_eigen.h> //???
+//#include <tf/transform_broadcaster.h> //??
+//#include <tf/transform_listener.h>
+//#include <tf/tf.h> //??
 #include <pcl_ros/impl/transforms.hpp>
 
 //actions
-#include <actionlib/client/simple_action_client.h>
-#include "jaco_msgs/SetFingersPositionAction.h"
-#include "jaco_msgs/ArmPoseAction.h"
-#include "jaco_msgs/ArmJointAnglesAction.h"
+//#include <actionlib/client/simple_action_client.h>
+//#include "jaco_msgs/SetFingersPositionAction.h"
+//#include "jaco_msgs/ArmPoseAction.h"
+//#include "jaco_msgs/ArmJointAnglesAction.h"
 
-#include "agile_grasp/Grasps.h"
+//#include "agile_grasp/Grasps.h"
 
 //srv for talking to table_object_detection_node.cpp
-#include "segbot_arm_perception/TabletopPerception.h"
+//#include "segbot_arm_perception/TabletopPerception.h"
 
 // PCL specific includes
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/console/parse.h>
-#include <pcl/point_types.h>
-#include <pcl/io/openni_grabber.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
-#include <pcl/common/time.h>
+//#include <pcl_conversions/pcl_conversions.h>
+//#include <pcl/point_cloud.h>
+//#include <pcl/console/parse.h>
+//#include <pcl/point_types.h>
+//#include <pcl/io/openni_grabber.h>
+//#include <pcl/sample_consensus/sac_model_plane.h>
+//#include <pcl/common/time.h>
 #include <pcl/common/common.h>
 
-#include <pcl/filters/crop_box.h>
-#include <pcl/filters/passthrough.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/extract_indices.h>
+//#include <pcl/filters/crop_box.h> //???
+//#include <pcl/filters/passthrough.h> //???
+//#include <pcl/filters/voxel_grid.h> //???
+//#include <pcl/filters/extract_indices.h> //???
 
-#include <pcl/ModelCoefficients.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/segmentation/extract_clusters.h>
+//#include <pcl/ModelCoefficients.h>
+//#include <pcl/sample_consensus/method_types.h>
+//#include <pcl/sample_consensus/model_types.h>
+//#include <pcl/segmentation/sac_segmentation.h>
+//#include <pcl/segmentation/extract_clusters.h>
 
-#include <pcl/kdtree/kdtree.h>
+//#include <pcl/kdtree/kdtree.h> //???
 
 // Kinematics
-#include <moveit_msgs/GetPositionFK.h>
-#include <moveit_msgs/GetPositionIK.h>
+//#include <moveit_msgs/GetPositionFK.h> //???
+//#include <moveit_msgs/GetPositionIK.h> //???
 
-#include <moveit_utils/AngularVelCtrl.h>
-#include <moveit_utils/MicoMoveitJointPose.h>
-#include <moveit_utils/MicoMoveitCartesianPose.h>
+//#include <moveit_utils/AngularVelCtrl.h> //???
+//#include <moveit_utils/MicoMoveitJointPose.h> //???
+//#include <moveit_utils/MicoMoveitCartesianPose.h> //???
 
 #include <segbot_arm_manipulation/arm_utils.h>
 
-#include <pcl/io/pcd_io.h>
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/surface/mls.h>
-#include <pcl/surface/convex_hull.h>
+//#include <pcl/io/pcd_io.h> //???
+//#include <pcl/kdtree/kdtree_flann.h> //???
+//#include <pcl/surface/mls.h> //???
+//#include <pcl/surface/convex_hull.h> //???
 
 using namespace pcl;
 typedef pcl::PointXYZRGB PointT;

@@ -145,11 +145,11 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(collison_demo src/collison_demo.cpp)
-target_link_libraries(collison_demo ${catkin_LIBRARIES} )
-add_dependencies(collison_demo jaco_msgs_gencpp agile_grasp_gencpp)
+add_executable(collision_demo src/collision_demo.cpp)
+target_link_libraries(collision_demo ${catkin_LIBRARIES} )
+add_dependencies(collision_demo jaco_msgs_gencpp agile_grasp_gencpp)
 
-target_link_libraries(collison_demo
+target_link_libraries(collision_demo
    ${catkin_LIBRARIES}
  )
 

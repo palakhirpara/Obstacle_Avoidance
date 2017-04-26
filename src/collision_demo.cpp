@@ -130,7 +130,7 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
 }
 
 int main(int argc, char **argv) {
-    ros::init(argc, argv, "collison_demo");
+    ros::init(argc, argv, "collision_demo");
     ros::NodeHandle nh;
 
     controller_client = nh.serviceClient<moveit_utils::MicoController>("mico_controller");

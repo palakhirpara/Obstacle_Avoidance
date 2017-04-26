@@ -148,6 +148,9 @@ int main(int argc, char **argv) {
   
     //create listener for transforms
     tf::TransformListener tf_listener;
+	
+	ROS_INFO("Move the arm so that it does not occlude the table.");
+	pressEnter();
 
     segbot_arm_perception::TabletopPerception::Response table_scene = segbot_arm_manipulation::getTabletopScene(nh);
   
@@ -184,8 +187,8 @@ int main(int argc, char **argv) {
     //convert to PCL 
     PointCloudT::Ptr object_i (new PointCloudT);
     pcl::PCLPointCloud2 pc_i;
-    pcl_conversions::toPCL(object_cloud,pc_i);
-    pcl::fromPCLPointCloud2(pc_i,*object_i);
+    pcl_conversions::toPCL(object_cloud, pc_i);
+    pcl::fromPCLPointCloud2(pc_i, *object_i);
   
     //get the min and max
     PointT min_pt;
@@ -231,13 +234,13 @@ int main(int argc, char **argv) {
     for (unsigned int i = 0; i < table_scene.cloud_clusters.size(); i++) {
         PointCloudT::Ptr object_i (new PointCloudT);
         pcl::PCLPointCloud2 pc_i;
-        pcl_conversions::toPCL(table_scene.cloud_clusters.at(i),pc_i);
-        pcl::fromPCLPointCloud2(pc_i,*object_i);
+        pcl_conversions::toPCL(table_scene.cloud_clusters.at(i), pc_i);
+        pcl::fromPCLPointCloud2(pc_i, *object_i);
         detected_objects.push_back(object_i);
     } 
   
     if (detected_objects.size() == 0) {
-        ROS_INFO("[agile_grasp_demo.cpp] No objects detected");
+        ROS_INFO("No objects detected");
         exit(1);
     } else {
 		ROS_INFO("Objects Detected!");

@@ -14,7 +14,7 @@ typedef pcl::PointXYZRGB PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
 std::vector<PointCloudT::Ptr> detected_objects;
-std::vector<shape_msgs::Mesh> result; // mesh objects
+std::vector<shape_msgs::Mesh> result; //mesh objects
 std::vector<moveit_msgs::CollisionObject> collision_objects; 
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped start_pose;
@@ -30,17 +30,23 @@ moveit_msgs::DisplayTrajectory display_trajectory;
 //true if Ctrl-C is pressed
 bool g_caught_sigint=false;
 
-
-/* what happens when ctr-c is pressed */
+//Ctrl-C handler
 void sig_handler(int sig) {
     g_caught_sigint = true;
     ROS_INFO("caught sigint, init shutdown sequence...");
     ros::shutdown();
     exit(1);
-};
+}
 
-//Joint state cb
-void toolpos_cb (const geometry_msgs::PoseStamped &msg) {
+//ENTER key handler
+void pressEnter() {
+    std::cout << "Press the ENTER key to continue";
+    while (std::cin.get() != '\n')
+        std::cout << "Please press ENTER\n";
+}
+
+//joint state cb
+void toolpos_cb(const geometry_msgs::PoseStamped &msg) {
     current_pose = msg;
     heardPose = true;
 }
@@ -50,9 +56,9 @@ void listenForArmData(float rate) {
     ros::Rate r(rate);
     while (ros::ok()) {
         ros::spinOnce();
-	if (heardPose) 
+		if (heardPose) 
             return;
-	r.sleep();
+		r.sleep();
     }
 }
 
@@ -64,8 +70,6 @@ void toPoint(const T &in, geometry_msgs::Point &out) {
 }
 
 bool service_cb(geometry_msgs::PoseStamped p_target) {
-    ROS_INFO("[mico_moveit_cartesianpose_service.cpp] Request received!");
-    
     moveit_utils::MicoController srv_controller;
     moveit::planning_interface::MoveGroup group("arm");
     moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
@@ -88,10 +92,11 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
     group.setStartState(*group.getCurrentState());
     group.setPoseTarget(p_target);
 
-    ROS_INFO("[mico_moveit_cartesianpose_service.cpp] starting to plan...");
+    ROS_INFO("Starting to plan...");
     bool success = group.plan(my_plan);
+	
     if (success)
-        ROS_INFO("Planning successful\n");
+        ROS_INFO("Planning successful.\n");
     else {
         ROS_WARN("Planning unsuccessful. Please rerun.\n");
         exit(1);
@@ -104,12 +109,11 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
     display_trajectory.trajectory.push_back(my_plan.trajectory_);
     display_publisher.publish(display_trajectory);
 		
-    //Sleep to give Rviz time to visualize the plan.
+    //sleep to give Rviz time to visualize the plan.
     sleep(5.0);
     
     moveit_utils::MicoController srv;
     srv_controller.request.trajectory = my_plan.trajectory_;
-
 	
     ROS_INFO("Calling controller client");
 	
@@ -125,12 +129,6 @@ bool service_cb(geometry_msgs::PoseStamped p_target) {
     return true;
 }
 
-void pressEnter() {
-    std::cout << "Press the ENTER key to continue";
-    while (std::cin.get() != '\n')
-        std::cout << "Please press ENTER\n";
-}
-
 int main(int argc, char **argv) {
     ros::init(argc, argv, "collison_demo");
     ros::NodeHandle nh;
@@ -143,8 +141,9 @@ int main(int argc, char **argv) {
 
     display_publisher = nh.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
 		
-	ros::Subscriber sub_tool = nh.subscribe("/mico_arm_driver/out/tool_position", 1, toolpos_cb);
-    //register ctrl-c
+    ros::Subscriber sub_tool = nh.subscribe("/mico_arm_driver/out/tool_position", 1, toolpos_cb);
+    
+	//register Ctrl-C
     signal(SIGINT, sig_handler);
   
     //create listener for transforms
@@ -154,9 +153,9 @@ int main(int argc, char **argv) {
   
     if ((int)table_scene.cloud_clusters.size() == 0) {
         ROS_WARN("No objects found on table. Exiting. Please add objects and rerun.");
-	    exit(1);
+		exit(1);
     } else {
-	    ROS_INFO("Objects found on the table.");
+		ROS_INFO("Objects found on the table.");
     }
 	  
     //select the object with most points as the target object
@@ -164,9 +163,9 @@ int main(int argc, char **argv) {
     int largest_num_points = -1;
     for (unsigned int i = 0; i < table_scene.cloud_clusters.size(); i++) {
         int num_points_i = table_scene.cloud_clusters[i].height* table_scene.cloud_clusters[i].width;
-	    if (num_points_i > largest_num_points) {
-	       largest_num_points = num_points_i;
-	       largest_pc_index = i;
+		if (num_points_i > largest_num_points) {
+	    	largest_num_points = num_points_i;
+	    	largest_pc_index = i;
         }
     }
 	
@@ -174,7 +173,7 @@ int main(int argc, char **argv) {
     tf_listener.waitForTransform(table_scene.cloud_clusters[largest_pc_index].header.frame_id,"base_link",
         ros::Time(0), ros::Duration(3.0)); 
 	
-    // Transformed Object - in reference from the base_link
+    //transformed object in reference from the base_link
     sensor_msgs::PointCloud2 object_cloud;	
 	
     //transform it to base link frame of reference
@@ -182,13 +181,13 @@ int main(int argc, char **argv) {
 		
     segbot_arm_manipulation::closeHand();
 
-    // convert to PCL 
+    //convert to PCL 
     PointCloudT::Ptr object_i (new PointCloudT);
     pcl::PCLPointCloud2 pc_i;
     pcl_conversions::toPCL(object_cloud,pc_i);
     pcl::fromPCLPointCloud2(pc_i,*object_i);
   
-    // get the min and max
+    //get the min and max
     PointT min_pt;
     PointT max_pt;
   
@@ -197,14 +196,14 @@ int main(int argc, char **argv) {
     Eigen::Vector4f centroid;
     pcl::compute3DCentroid(*object_i, centroid);
 
-    // create a bounding box
+    //create a bounding box
     moveit_msgs::CollisionObject collision_object;
     collision_object.header.frame_id = "base_link";
 
-    //Id of object used to identify it
+    //id of object used to identify it
     collision_object.id = "box";
 
-    //Define a box to add to the world
+    //define a box to add to the world
     shape_msgs::SolidPrimitive primitive;
     primitive.type = primitive.BOX;
     primitive.dimensions.resize(3);
@@ -213,7 +212,7 @@ int main(int argc, char **argv) {
     primitive.dimensions[1] = max_pt.y - min_pt.y;
     primitive.dimensions[2] = max_pt.z - min_pt.z;
 
-    //Pose for the box (specified relative to frame_id)
+    //pose for the box (specified relative to frame_id)
     geometry_msgs::Pose box_pose;
     box_pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
     box_pose.position.x = centroid[0];
@@ -241,11 +240,10 @@ int main(int argc, char **argv) {
         ROS_INFO("[agile_grasp_demo.cpp] No objects detected");
         exit(1);
     } else {
-	    ROS_INFO("Objects Detected!");
+		ROS_INFO("Objects Detected!");
     }
-  
 
-    //Creating marker
+    //creating marker
     uint32_t shape = visualization_msgs::Marker::CUBE; 
     visualization_msgs::Marker marker; 
     marker.header.frame_id = "base_link"; 
@@ -259,7 +257,7 @@ int main(int argc, char **argv) {
     marker.pose.position.x = centroid[0]; 
     marker.pose.position.y = centroid[1]; 
     marker.pose.position.z = centroid[2]; 
-    marker.pose.orientation =  tf::createQuaternionMsgFromRollPitchYaw(0.0,0.0,0.0);
+    marker.pose.orientation =  tf::createQuaternionMsgFromRollPitchYaw(0.0, 0.0, 0.0);
  
     marker.scale.x = (max_pt.x - min_pt.x); 
     marker.scale.y = (max_pt.y - min_pt.y); 
@@ -278,12 +276,10 @@ int main(int argc, char **argv) {
     
     ROS_INFO("Marker printed. Check RViz to see which object has been chosen as the obstacle.");
     pub_box.publish(marker);
-
 	
     ROS_INFO("Demo starting...");
     ROS_INFO("Move the arm to end pose.");
     pressEnter();
-    ROS_INFO("Mo start pose.");
     listenForArmData(30.0);
     end_pose = current_pose;
 
@@ -295,8 +291,8 @@ int main(int argc, char **argv) {
     ROS_INFO("Publishing end pose. Check Rviz to see end pose.");
     pub_rviz.publish(end_pose);
 
-   
     service_cb(end_pose);
+
     ROS_INFO("Demo has ended. Ctrl-C to exit.");
     ros::spin();
     return 0;
